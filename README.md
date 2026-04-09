@@ -18,12 +18,14 @@ UVA students search for off-campus housing across many scattered platforms with 
 3. **RAG Explanation** — LLM generates grounded 1-2 sentence explanation per listing
 
 ## Project Structure
+```
 campusnest-ai/
 ├── backend/
 ├── frontend/
 ├── data/
 │   └── uva_buildings.csv
 └── README.md
+```
 
 ## Stack
 - Backend: Python, Flask
