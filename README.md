@@ -6,7 +6,6 @@ AI-powered student housing recommendations for UVA students.
 |------|-------------|
 | Norah Alghamdi | nwm3fj |
 | Tina Fout | mpf5ss |
-| Winnie Liang | zjt6ch |
 | Zachary Moore | sqr3xb |
 
 ## Problem
