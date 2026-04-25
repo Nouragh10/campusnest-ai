@@ -8,7 +8,7 @@ Given a listing and a student's constraints, write a 1-2 sentence explanation
 of why this listing is a good match. You must ONLY reference facts provided
 to you. Respond in JSON with keys: explanation_text, highlighted_features.
 "highlighted_features" should only include positive attributes of the listing. 
-Do not include restrictions or things the listing lacks.
+In "highlighted_features", do not include restrictions or things the listing lacks, do not include the scores. 
 """
 
 def build_context_packet(listing: dict, constraints: dict, median_stats: dict) -> str:
