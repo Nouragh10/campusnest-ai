@@ -1,12 +1,14 @@
 import openai, json
 
-agent = openai.OpenAI(api_key="")
+agent = openai.OpenAI(api_key="") # Add Open AI API key here
 
 SYSTEM_PROMPT = """
 You are a housing recommendation assistant for UVA students.
 Given a listing and a student's constraints, write a 1-2 sentence explanation
 of why this listing is a good match. You must ONLY reference facts provided
 to you. Respond in JSON with keys: explanation_text, highlighted_features.
+"highlighted_features" should only include positive attributes of the listing. 
+Do not include restrictions or things the listing lacks.
 """
 
 def build_context_packet(listing: dict, constraints: dict, median_stats: dict) -> str:
