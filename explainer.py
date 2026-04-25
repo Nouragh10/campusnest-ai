@@ -1,0 +1,77 @@
+import openai, json
+
+agent = openai.OpenAI(api_key="")
+
+SYSTEM_PROMPT = """
+You are a housing recommendation assistant for UVA students.
+Given a listing and a student's constraints, write a 1-2 sentence explanation
+of why this listing is a good match. You must ONLY reference facts provided
+to you. Respond in JSON with keys: explanation_text, highlighted_features.
+"""
+
+def build_context_packet(listing: dict, constraints: dict, median_stats: dict) -> str:
+    return f"""
+    Listing: {json.dumps(listing)}
+    Constraints: {json.dumps(constraints)}
+    Median Stats: {json.dumps(median_stats)}
+    Rent: {listing['rent']}
+    Score Breakdown: cost_score={listing['cost_score']}, location_score={listing['location_score']}, size_score={listing['size_score']}, amenities_score={listing['amenities_score']}
+    """
+
+def generate_explanation(listing: dict, constraints: dict, median_stats: dict) -> dict:
+    context = build_context_packet(listing, constraints, median_stats)
+    response = agent.chat.completions.create(
+        model="gpt-4o-mini",
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": context}
+        ]
+    )
+    result = json.loads(response.choices[0].message.content)
+    return validate_explanation(result, listing)
+
+def explanation_correction(result: dict, listing: dict, violations: list) -> dict:
+    violations_str = ", ".join(violations)
+    correction_instruction = f"""
+Your previous explanation incorrectly mentioned: {violations_str}.
+These features are NOT present in this listing. 
+Rewrite the explanation without referencing them.
+Previous explanation: {result["explanation_text"]}
+Listing facts: {json.dumps(listing)}
+"""
+    response = agent.chat.completions.create(
+        model="gpt-4o-mini",
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": correction_instruction}
+        ]
+    )
+    corrected = json.loads(response.choices[0].message.content)
+
+    # Avoid infinite loop — only try once
+    return corrected
+
+def validate_explanation(result: dict, listing: dict) -> dict:
+    explanation = result["explanation_text"].lower()
+    violations = []
+
+    # Define checkable claims
+    checks = {
+        "pet": listing["pets_allowed"],
+        "parking": listing["parking_included"],
+        "gym": "gym" in listing["amenities"],
+        "washer": "washer" in listing["amenities"],
+        # add more as needed
+    }
+
+    for keyword, is_true in checks.items():
+        if keyword in explanation and not is_true:
+            violations.append(keyword)
+
+    if violations:
+        # Re-prompt with a correction instruction
+        return explanation_correction(result, listing, violations)
+    
+    return result
