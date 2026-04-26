@@ -19,10 +19,14 @@ UVA students search for off-campus housing across many scattered platforms with 
 ## Project Structure
 ```
 campusnest-ai/
-├── backend/
 ├── frontend/
+│   ├── index.html
+│   ├── styles.css
+│   └── app.js
 ├── data/
 │   └── uva_buildings.csv
+├── explainer.py
+├── test_explainer.py
 └── README.md
 ```
 
@@ -36,3 +40,10 @@ campusnest-ai/
 - Ranking quality: Precision@5 and NDCG@5 on 30-50 synthetic student profiles
 - Explanation quality: Manual scoring of 50 LLM-generated explanations
 - Commute accuracy: Mean absolute error vs. Google Maps ground truth
+
+## Frontend User Input
+- Open `frontend/index.html` in a browser.
+- Fill out student constraints (budget, bedrooms, commute, destination, transport mode, and amenities).
+- Click **Build Request Payload** to generate JSON for backend use.
+- The latest form values are cached in browser storage for quick iteration.
+- If running from project root with `python3 -m http.server 5500`, opening `http://localhost:5500` now redirects directly to the frontend app.

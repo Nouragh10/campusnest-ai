@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CampusNest - Student Preferences</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <h1>CampusNest Preferences</h1>
+      <p>Enter student housing constraints to generate ranked recommendations.</p>
+    </header>
+
+    <section class="card">
+      <form id="preferences-form" novalidate>
+        <div class="grid">
+          <label>
+            <span>Max Monthly Rent (USD)</span>
+            <input id="max-rent" name="maxRent" type="number" min="0" step="50" required />
+          </label>
+
+          <label>
+            <span>Bedrooms</span>
+            <select id="bedrooms" name="bedrooms" required>
+              <option value="">Select bedrooms</option>
+              <option value="studio">Studio</option>
+              <option value="1">1 Bedroom</option>
+              <option value="2">2 Bedrooms</option>
+              <option value="3+">3+ Bedrooms</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Max Commute Time (minutes)</span>
+            <input id="max-commute" name="maxCommuteMinutes" type="number" min="1" max="120" required />
+          </label>
+
+          <label>
+            <span>Primary Campus Destination</span>
+            <input id="destination" name="primaryDestination" type="text" placeholder="e.g. Rice Hall" required />
+          </label>
+        </div>
+
+        <fieldset class="group">
+          <legend>Transportation</legend>
+          <div class="inline-options">
+            <label><input type="radio" name="transportMode" value="driving" checked /> Driving</label>
+            <label><input type="radio" name="transportMode" value="walking" /> Walking</label>
+            <label><input type="radio" name="transportMode" value="bicycling" /> Biking</label>
+            <label><input type="radio" name="transportMode" value="transit" /> Transit</label>
+          </div>
+        </fieldset>
+
+        <fieldset class="group">
+          <legend>Preferences</legend>
+          <div class="inline-options">
+            <label><input type="checkbox" name="preferences" value="petFriendly" /> Pet Friendly</label>
+            <label><input type="checkbox" name="preferences" value="inUnitLaundry" /> In-unit Laundry</label>
+            <label><input type="checkbox" name="preferences" value="furnished" /> Furnished</label>
+            <label><input type="checkbox" name="preferences" value="parkingIncluded" /> Parking Included</label>
+          </div>
+        </fieldset>
+
+        <label>
+          <span>Notes (optional)</span>
+          <textarea id="notes" name="notes" rows="3" placeholder="Any special constraints or priorities"></textarea>
+        </label>
+
+        <div class="actions">
+          <button type="submit" class="primary">Show Matching Listings</button>
+          <button type="button" id="reset-button" class="ghost">Reset</button>
+        </div>
+
+        <p id="form-error" class="error" role="alert" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="output-header">
+        <h2>Top Listings</h2>
+      </div>
+      <div id="listing-results" class="listing-results">
+        Submit the form to view matched listings.
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="output-header">
+        <h2>Request Payload</h2>
+        <button type="button" id="copy-json" class="ghost">Copy JSON</button>
+      </div>
+      <pre id="json-output">Submit the form to preview request JSON.</pre>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
