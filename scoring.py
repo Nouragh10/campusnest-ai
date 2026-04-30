@@ -115,6 +115,11 @@ def haversine_miles(lat1, lon1, lat2, lon2):
 
 
 def estimate_commute_minutes(listing, destination):
+    commute_lookup = destination.get("commute_lookup") if destination else None
+    listing_id = str(listing.get("id") or listing.get("zpid") or "")
+    if commute_lookup and listing_id in commute_lookup:
+        return commute_lookup[listing_id]
+
     listing_lat, listing_lng = get_lat_lng(listing)
 
     if listing_lat is None or listing_lng is None:
@@ -128,12 +133,14 @@ def estimate_commute_minutes(listing, destination):
 
     distance = haversine_miles(listing_lat, listing_lng, dest_lat, dest_lng)
 
-    mode = destination.get("transport_mode", "walk")
+    mode = destination.get("transport_mode", "walking")
 
     if mode == "drive":
         speed_mph = 20
-    elif mode == "bus":
+    elif mode == "transit":
         speed_mph = 12
+    elif mode == "bicycling":
+        speed_mph = 10
     else:
         speed_mph = 3
 
@@ -189,6 +196,7 @@ def calculate_amenities_score(listing, constraints):
 
 def score_listings(listings, constraints, destination=None, limit=10):
     filtered = []
+    commute_limit = constraints.get("commute_max") or constraints.get("commuteConstraintMinutes")
 
     for listing in listings:
         if not passes_hard_constraints(listing, constraints):
@@ -196,6 +204,8 @@ def score_listings(listings, constraints, destination=None, limit=10):
 
         price = get_listing_price(listing)
         commute = estimate_commute_minutes(listing, destination) if destination else None
+        if commute_limit is not None and commute is not None and commute > commute_limit:
+            continue
 
         item = listing.copy()
         item["rent"] = price

@@ -1,6 +1,24 @@
-import openai, json
+import json
+import os
+agent = None
 
-agent = openai.OpenAI(api_key="") # Add Open AI API key here
+
+def _get_agent():
+    global agent
+    if agent is not None:
+        return agent
+
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        return None
+
+    try:
+        import openai
+    except ModuleNotFoundError:
+        return None
+
+    agent = openai.OpenAI(api_key=api_key)
+    return agent
 
 SYSTEM_PROMPT = """
 You are a housing recommendation assistant for UVA students.
@@ -11,18 +29,47 @@ to you. Respond in JSON with keys: explanation_text, highlighted_features.
 In "highlighted_features", do not include restrictions or things the listing lacks, do not include the scores. 
 """
 
-def build_context_packet(listing: dict, constraints: dict, median_stats: dict) -> str:
+def build_context_packet(listing: dict, constraints: dict, median_stats: dict, retrieved_context: list | None) -> str:
     return f"""
     Listing: {json.dumps(listing)}
     Constraints: {json.dumps(constraints)}
     Median Stats: {json.dumps(median_stats)}
+    Retrieved Context Chunks: {json.dumps(retrieved_context or [])}
     Rent: {listing['rent']}
     Score Breakdown: cost_score={listing['cost_score']}, location_score={listing['location_score']}, size_score={listing['size_score']}, amenities_score={listing['amenities_score']}
     """
 
-def generate_explanation(listing: dict, constraints: dict, median_stats: dict) -> dict:
-    context = build_context_packet(listing, constraints, median_stats)
-    response = agent.chat.completions.create(
+def _fallback_explanation(listing, constraints, retrieved_context):
+    building = listing.get("buildingName") or listing.get("statusText") or "This listing"
+    rent = listing.get("rent")
+    commute = listing.get("estimated_commute_minutes")
+    destination = constraints.get("destination") or "campus"
+    context_sentence = retrieved_context[0] if retrieved_context else "Matches your requested constraints."
+    rent_text = f"${rent:.0f}/month" if isinstance(rent, (int, float)) else "a competitive monthly rent"
+    commute_text = (
+        f"about {commute:.1f} minutes from {destination}"
+        if isinstance(commute, (int, float))
+        else f"within reach of {destination}"
+    )
+
+    explanation = (
+        f"{building} is a solid fit for your budget and bedroom constraints. "
+        f"It offers {rent_text} and is {commute_text}. "
+        f"{context_sentence}"
+    )
+    return {
+        "explanation_text": explanation,
+        "highlighted_features": [context_sentence],
+    }
+
+
+def generate_explanation(listing: dict, constraints: dict, median_stats: dict, retrieved_context: list | None = None) -> dict:
+    llm_agent = _get_agent()
+    if not llm_agent:
+        return _fallback_explanation(listing, constraints, retrieved_context or [])
+
+    context = build_context_packet(listing, constraints, median_stats, retrieved_context)
+    response = llm_agent.chat.completions.create(
         model="gpt-4o-mini",
         response_format={"type": "json_object"},
         messages=[
@@ -42,7 +89,10 @@ Rewrite the explanation without referencing them.
 Previous explanation: {result["explanation_text"]}
 Listing facts: {json.dumps(listing)}
 """
-    response = agent.chat.completions.create(
+    llm_agent = _get_agent()
+    if not llm_agent:
+        return result
+    response = llm_agent.chat.completions.create(
         model="gpt-4o-mini",
         response_format={"type": "json_object"},
         messages=[
@@ -61,10 +111,10 @@ def validate_explanation(result: dict, listing: dict) -> dict:
 
     # Define checkable claims
     checks = {
-        "pet": listing["pets_allowed"],
-        "parking": listing["parking_included"],
-        "gym": "gym" in listing["amenities"],
-        "washer": "washer" in listing["amenities"],
+        "pet": bool(listing.get("pets_allowed", False)),
+        "parking": bool(listing.get("parking_included", False)),
+        "gym": "gym" in str(listing).lower(),
+        "washer": "washer" in str(listing).lower(),
         # add more as needed
     }
 

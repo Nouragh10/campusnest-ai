@@ -1,2 +1,7 @@
 __pycache__/
 *.pyc
+.venv/
+
+# Runtime geocode / commute caches (regenerated when using Google APIs)
+data/location_cache.json
+data/commute_cache.json

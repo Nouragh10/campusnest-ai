@@ -182,6 +182,12 @@ pre {
   color: var(--muted);
 }
 
+.listing-explanation {
+  margin: 0.45rem 0 0.55rem;
+  color: #111827;
+  line-height: 1.4;
+}
+
 .listing-link {
   color: var(--primary);
   font-weight: 600;

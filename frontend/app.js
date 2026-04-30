@@ -6,9 +6,7 @@ const resetButton = document.getElementById("reset-button");
 const listingResults = document.getElementById("listing-results");
 
 const STORAGE_KEY = "campusnest.userInput.v1";
-const DATASET_PATH = "../data/zillow_dataset.json";
-const DEFAULT_RESULTS_LIMIT = 10;
-let listingsCache = null;
+const API_ENDPOINT = "/api/recommendations";
 
 function getSelectedPreferences() {
   return Array.from(document.querySelectorAll('input[name="preferences"]:checked')).map(
@@ -72,24 +70,6 @@ function parseCurrency(value) {
   return Number(digits);
 }
 
-function normalizeBedrooms(raw) {
-  if (!raw && raw !== 0) return NaN;
-  if (typeof raw === "number") return raw;
-  if (typeof raw === "string") {
-    const lower = raw.toLowerCase();
-    if (lower.includes("studio")) return 0;
-    if (lower.includes("+")) return Number(lower.replace(/[^0-9]/g, ""));
-    return Number(lower.replace(/[^0-9.]/g, ""));
-  }
-  return NaN;
-}
-
-function requiredBedroomCount(selection) {
-  if (selection === "studio") return 0;
-  if (selection === "3+") return 3;
-  return Number(selection);
-}
-
 function getListingPrice(listing) {
   if (Number.isFinite(listing.minBaseRent)) return listing.minBaseRent;
   if (Number.isFinite(listing.unformattedPrice)) return listing.unformattedPrice;
@@ -98,24 +78,6 @@ function getListingPrice(listing) {
     if (values.length > 0) return Math.min(...values);
   }
   return NaN;
-}
-
-function hasBedroomMatch(listing, targetBedrooms) {
-  if (Array.isArray(listing.units) && listing.units.length > 0) {
-    const options = listing.units.map((unit) => normalizeBedrooms(unit.beds)).filter(Number.isFinite);
-    if (targetBedrooms === 3) return options.some((count) => count >= 3);
-    return options.some((count) => count === targetBedrooms);
-  }
-  return true;
-}
-
-function scoreListing(listing, payload, targetBedrooms) {
-  const price = getListingPrice(listing);
-  const budget = payload.studentProfile.budget;
-  const budgetDiff = Math.max(0, price - budget);
-  const preferenceBonus = payload.studentProfile.preferences.length > 0 ? 2 : 0;
-  const featuredBonus = listing.isFeaturedListing ? 1 : 0;
-  return budgetDiff - preferenceBonus - featuredBonus;
 }
 
 function renderListingResults(items) {
@@ -135,6 +97,10 @@ function renderListingResults(items) {
       const address = item.address || "Address unavailable";
       const image = item.imgSrc || "";
       const link = item.detailUrl || "#";
+      const commute = Number.isFinite(item.estimated_commute_minutes)
+        ? `${item.estimated_commute_minutes.toFixed(1)} min commute`
+        : "Commute unavailable";
+      const explanation = item.explanation?.explanation_text || "No AI explanation available for this listing yet.";
       const safeTarget = link === "#" ? "" : 'target="_blank" rel="noopener noreferrer"';
 
       return `
@@ -144,6 +110,8 @@ function renderListingResults(items) {
             <h3>${title}</h3>
             <p class="listing-meta">${formattedPrice} - ${unitSummary}</p>
             <p class="listing-meta">${address}</p>
+            <p class="listing-meta">${commute}</p>
+            <p class="listing-explanation">${explanation}</p>
             <a class="listing-link" href="${link}" ${safeTarget}>View listing</a>
           </div>
         </article>
@@ -152,32 +120,18 @@ function renderListingResults(items) {
     .join("");
 }
 
-async function getListings() {
-  if (Array.isArray(listingsCache)) return listingsCache;
-  const response = await fetch(DATASET_PATH);
-  if (!response.ok) {
-    throw new Error("Unable to load listing dataset.");
-  }
-  const data = await response.json();
-  listingsCache = Array.isArray(data) ? data : [];
-  return listingsCache;
-}
-
-async function buildMatches(payload) {
-  const listings = await getListings();
-  const targetBedrooms = requiredBedroomCount(payload.studentProfile.bedrooms);
-  const budget = payload.studentProfile.budget;
-
-  const filtered = listings.filter((listing) => {
-    const price = getListingPrice(listing);
-    if (!Number.isFinite(price)) return false;
-    if (price > budget) return false;
-    return hasBedroomMatch(listing, targetBedrooms);
+async function fetchRecommendations(payload) {
+  const response = await fetch(API_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
   });
-
-  return filtered
-    .sort((a, b) => scoreListing(a, payload, targetBedrooms) - scoreListing(b, payload, targetBedrooms))
-    .slice(0, DEFAULT_RESULTS_LIMIT);
+  if (!response.ok) {
+    throw new Error("Failed to fetch backend recommendations.");
+  }
+  return response.json();
 }
 
 function saveToLocalStorage(payload) {
@@ -228,12 +182,13 @@ form.addEventListener("submit", async (event) => {
   }
 
   try {
-    const matches = await buildMatches(payload);
+    const apiResponse = await fetchRecommendations(payload);
+    const matches = Array.isArray(apiResponse.listings) ? apiResponse.listings : [];
     writeOutput(payload);
     renderListingResults(matches);
     saveToLocalStorage(payload);
   } catch (error) {
-    showError(error instanceof Error ? error.message : "Failed to load listings.");
+    showError(error instanceof Error ? error.message : "Failed to load recommendations.");
   }
 });
 
