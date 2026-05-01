@@ -6,7 +6,22 @@ const resetButton = document.getElementById("reset-button");
 const listingResults = document.getElementById("listing-results");
 
 const STORAGE_KEY = "campusnest.userInput.v1";
-const API_ENDPOINT = "/api/recommendations";
+
+function apiBaseUrl() {
+  const meta = document.querySelector('meta[name="campusnest-api-base"]');
+  if (meta && meta.content.trim()) {
+    return meta.content.trim().replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined" && window.CAMPUSNEST_API_BASE) {
+    return String(window.CAMPUSNEST_API_BASE).trim().replace(/\/$/, "");
+  }
+  return "";
+}
+
+function recommendationsUrl() {
+  const base = apiBaseUrl();
+  return `${base}/api/recommendations`;
+}
 
 function getSelectedPreferences() {
   return Array.from(document.querySelectorAll('input[name="preferences"]:checked')).map(
@@ -121,15 +136,29 @@ function renderListingResults(items) {
 }
 
 async function fetchRecommendations(payload) {
-  const response = await fetch(API_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const url = recommendationsUrl();
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new Error(
+      `Cannot reach the API (${url}). Start the backend with "python3 server.py", then either open the app at ` +
+        `the same host/port (e.g. http://127.0.0.1:5050), or set the API base: ` +
+        `<meta name="campusnest-api-base" content="http://127.0.0.1:5050" /> in index.html before app.js, ` +
+        `or window.CAMPUSNEST_API_BASE = "http://127.0.0.1:5050".`
+    );
+  }
   if (!response.ok) {
-    throw new Error("Failed to fetch backend recommendations.");
+    const snippet = (await response.text()).slice(0, 180).trim();
+    throw new Error(
+      `API returned ${response.status} ${response.statusText}${snippet ? `: ${snippet}` : ""}. URL: ${url}`
+    );
   }
   return response.json();
 }

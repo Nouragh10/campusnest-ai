@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-from flask import Flask, abort, jsonify, request, send_from_directory
+from flask import Flask, Response, abort, jsonify, request, send_from_directory
 
 from explainer import generate_explanation
 from location_service import geocode_destination, get_commute_lookup
@@ -80,6 +80,16 @@ def _median_stats(scored):
 app = Flask(__name__, static_folder="frontend", static_url_path="/frontend")
 
 
+@app.after_request
+def add_api_cors(response):
+    """Allow separate dev servers (Live Server, etc.) to call the API."""
+    if request.path.startswith("/api/"):
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
+
+
 @app.get("/")
 def index():
     return send_from_directory(FRONTEND_DIR, "index.html")
@@ -101,8 +111,10 @@ def health():
     return jsonify({"ok": True})
 
 
-@app.post("/api/recommendations")
+@app.route("/api/recommendations", methods=["POST", "OPTIONS"])
 def recommendations():
+    if request.method == "OPTIONS":
+        return Response(status=204)
     payload = request.get_json(force=True, silent=True) or {}
     constraints = _extract_constraints(payload)
     destination = geocode_destination(constraints.get("destination", ""))

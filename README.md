@@ -125,6 +125,16 @@ curl -s http://127.0.0.1:5050/health
 3. Click **Show Matching Listings** — the UI calls the API and renders cards (price, commute, AI or template explanation).
 4. Form values persist in `localStorage` for quick iteration.
 
+### Teammates: “failed to fetch” / empty recommendations
+
+The UI posts to **`/api/recommendations`**. That only works if the **same host and port** serve both the page and the API, unless you point the UI at Flask explicitly.
+
+| Symptom | Cause | Fix |
+|--------|--------|-----|
+| Generic network error / “Cannot reach the API” | Backend not running | `source .venv/bin/activate` then `python3 -u server.py` |
+| 404 on submit | Page opened from **Live Server**, **VS Code preview**, or `python -m http.server` on another port — browser calls **that** port for `/api`, not Flask | **Recommended:** open **only** `http://127.0.0.1:5050` (or whatever `PORT` is) after starting `server.py`. **Or** keep your static server and set API base in `frontend/index.html`: `<meta name="campusnest-api-base" content="http://127.0.0.1:5050" />` (match your Flask URL). CORS is enabled for `/api/*` for this workflow. |
+| HTTP 403 on port 5000 | macOS **AirPlay Receiver** using port 5000 | Use default **5050** or set `PORT` (see **Run**). |
+
 ## Development notes
 - **Static assets:** `index.html` references `./app.js` and `./styles.css`; Flask serves those from the `frontend/` directory at the site root so paths resolve correctly.
 - **Tests:** `python3 test_scoring.py` and `python3 test_explainer.py` are smoke scripts, not a pytest suite.
